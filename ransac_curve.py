@@ -10,38 +10,36 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 import math
-from mpl_toolkits.mplot3d import Axes3D
 
-def normalize(v):
-    norm = np.linalg.norm(v)
-    if norm == 0: 
-       return v
-    return v / norm
+def curve_fit(hypo_inliers):
+    p1 = hypo_inliers[0]
+    p2 = hypo_inliers[1]
+    p3 = hypo_inliers[2]
 
-def plane_fit(hypo_inliers):
-    A = hypo_inliers[0]
-    B = hypo_inliers[1]
-    C = hypo_inliers[2]
-
-    AB = B - A
-    AC = C - A
-    normal = np.cross(AB, AC)
-    d = - (normal[0]*A[0] + normal[1]*A[1] + normal[2]*A[2])
-
-    params = np.append(normal,d)
-
-    return params
+    m = np.array([p1[0]*p1[0], p1[0], 1])
+    m = np.row_stack((m, np.array([p2[0]*p2[0], p2[0], 1])))
+    m = np.row_stack((m, np.array([p3[0]*p3[0], p3[0], 1])))
+    y = np.array([[p1[1]], [p2[1]], [p3[1]]])
     
-def point_to_plane(plane_params, point):
-    nu = math.fabs(plane_params[0]*point[0]+plane_params[1]*point[1]+plane_params[2]*point[2]+plane_params[3])
-    de = np.linalg.norm(plane_params[:3])
-    return nu/de
+    print(m)
+    print(m.shape)
+    print(y)
+    print(y.shape)
+    params = np.dot(np.linalg.inv(m), y)
+    print(params.shape)
+    return params
+
+def point_to_curve(curve_params, point):
+    y = point[1]
+    y_ = curve_params[0]*point[0]*point[0] + curve_params[1]*point[0] + curve_params[2]
+
+    return math.fabs(y-y_)
     
 def alsoInliers(data_in, plane_params, threshold):
     count = 0
     alsoinliers = np.array([])
     for i in range(0, data_in.shape[0]):
-        dis = point_to_plane(plane_params, data_in[i])
+        dis = point_to_curve(plane_params, data_in[i])
         if (dis < threshold):
             if count == 0:
                 alsoinliers = i
@@ -50,7 +48,7 @@ def alsoInliers(data_in, plane_params, threshold):
             count = count + 1
 
     return alsoinliers;
-    
+
 def downsample(data, distance):
     new_data = np.array([])
     for i in range(0, data.shape[0]):
@@ -64,10 +62,10 @@ def downsample(data, distance):
             if available == True:
                 new_data = np.row_stack((new_data, data[i]))
     return new_data
-            
+
 if __name__=='__main__':
     #read data
-    file = open('/home/ee904-itri-white/Desktop/test1.csv', 'r')
+    file = open('test1.csv', 'r')
     csvCursor = csv.reader(file)
     i = 0    
     for row in csvCursor:
@@ -80,29 +78,28 @@ if __name__=='__main__':
         i=i+1
     file.close()
 
-    normalize_1 = (A1[:,3] - np.mean(A1[:,3]))/np.std(A1[:,3])
-    normalize_2 = (A1[:,4] - np.mean(A1[:,4]))/np.std(A1[:,4])
     
-    data_in = normalize_1;
-    data_in = np.column_stack((data_in, normalize_2))
+    data_in = A1[:,1];
     data_in = np.column_stack((data_in, A1[:,5]))
 
-    new_data = downsample(data_in, 0.1)
+    data_in = downsample(data_in, 0.1)
 
-    max_iterations = 1000
-    threshold = 0.4
+    # parameters
+    max_iterations = 100
+    threshold = 0.3
     fit_prob = 0.99
     max_count = 0
     inliers = data_in
+    max_curve = np.zeros((3,1))
+
     for i in range(0, max_iterations):
         choice = np.random.choice(data_in.shape[0],3,replace=False)
         hypo_inliers = data_in[choice]
-        plane_params = plane_fit(hypo_inliers)
-
-        temp_inliers = alsoInliers(data_in, plane_params, threshold)
-
+        curve_params = curve_fit(hypo_inliers)
+        temp_inliers = alsoInliers(data_in, curve_params, threshold)
         if temp_inliers.shape[0] > max_count:
             max_count = temp_inliers.shape[0]
+            max_curve = curve_params
             inliers = temp_inliers
         if (inliers.shape[0]/data_in.shape[0] > fit_prob):
             break
@@ -118,32 +115,30 @@ if __name__=='__main__':
             res = row
         else:
             res = np.row_stack((res, row))
-    print(inliers.shape[0])
-        
-
-
-                    
+    print("inliers/all = " + str(inliers.shape[0]) + "/" + str(data_in.shape[0]))
     
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_aspect('equal')
-    ax.scatter(normalize_1, normalize_2, A1[:,5], marker='o', c = A1[:,0])
-    
-    ax.set_xlabel('R1')
-    ax.set_ylabel('R2')
-    ax.set_zlabel('velocity')
-    
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_aspect('equal')
-    ax.scatter(res[:,0], res[:,1], res[:,2], marker='o', c = res[:,3])
-    
-    ax.set_xlabel('R1')
-    ax.set_ylabel('R2')
-    ax.set_zlabel('velocity')
- #   plt.plot(rcs[:,0],rcs[:,1], 'ro')
-#    plt.scatter(rcs[:,0], rcs[:,1], s = 8, color = 'green', label = 'Before Optimization')
+    x_c = np.linspace(-45,45,100)
+    y_c = np.array(max_curve[0] * np.multiply(x_c, x_c) + max_curve[1] * x_c + max_curve[2])
 
+    plt.figure()
+    
+    plt.scatter(A1[:,1], A1[:,5], marker='o', c = A1[:,0])
+    
+    plt.xlabel('theta')
+    plt.ylabel('velocity')
+    plt.axis('equal')
+    plt.title("Result of pcl ransac")
+    plt.show()
+    
 
-
+    plt.figure()
+    
+    plt.scatter(res[:,0], res[:,1], marker='o', c = res[:,2])
+    plt.plot(x_c, y_c, c = 'red')
+    
+    plt.xlabel('theta')
+    plt.ylabel('velocity')
+    plt.axis('equal')
+    plt.title("Result of our ransac")
+    plt.xlim(-45,45)
     plt.show()
