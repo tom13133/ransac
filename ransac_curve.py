@@ -3,7 +3,7 @@
 """
 Created on Tue Dec 31 13:39:17 2019
 
-@author: ee904-itri-white
+@author: yuhan
 """
 
 import matplotlib.pyplot as plt
@@ -11,6 +11,7 @@ import csv
 import numpy as np
 import math
 
+# estimate the curve parameters given three points
 def curve_fit(hypo_inliers):
     p1 = hypo_inliers[0]
     p2 = hypo_inliers[1]
@@ -21,12 +22,7 @@ def curve_fit(hypo_inliers):
     m = np.row_stack((m, np.array([p3[0]*p3[0], p3[0], 1])))
     y = np.array([[p1[1]], [p2[1]], [p3[1]]])
     
-    print(m)
-    print(m.shape)
-    print(y)
-    print(y.shape)
     params = np.dot(np.linalg.inv(m), y)
-    print(params.shape)
     return params
 
 def point_to_curve(curve_params, point):
@@ -65,30 +61,27 @@ def downsample(data, distance):
 
 if __name__=='__main__':
     #read data
-    file = open('test1.csv', 'r')
+    file = open('test_curve.csv', 'r')
     csvCursor = csv.reader(file)
     i = 0    
     for row in csvCursor:
         if i==1:
-            row = [float(x) for x in row[0:6]]
-            A1 = np.array(row[0:6])
+            row = [float(x) for x in row[0:2]]
+            data_in = np.array(row[0:2])
         elif i>1:
-            row = [float(x) for x in row[0:6]]
-            A1 = np.row_stack((A1, row))
+            row = [float(x) for x in row[0:2]]
+            data_in = np.row_stack((data_in, row))
         i=i+1
     file.close()
 
-    
-    data_in = A1[:,1];
-    data_in = np.column_stack((data_in, A1[:,5]))
-
-    data_in = downsample(data_in, 0.1)
+#    data_in = downsample(data_in, 0.1)
 
     # parameters
     max_iterations = 100
-    threshold = 0.3
+    threshold = 1
     fit_prob = 0.99
     max_count = 0
+
     inliers = data_in
     max_curve = np.zeros((3,1))
 
@@ -116,29 +109,18 @@ if __name__=='__main__':
         else:
             res = np.row_stack((res, row))
     print("inliers/all = " + str(inliers.shape[0]) + "/" + str(data_in.shape[0]))
-    
+
     x_c = np.linspace(-45,45,100)
     y_c = np.array(max_curve[0] * np.multiply(x_c, x_c) + max_curve[1] * x_c + max_curve[2])
 
-    plt.figure()
-    
-    plt.scatter(A1[:,1], A1[:,5], marker='o', c = A1[:,0])
-    
-    plt.xlabel('theta')
-    plt.ylabel('velocity')
-    plt.axis('equal')
-    plt.title("Result of pcl ransac")
-    plt.show()
-    
 
     plt.figure()
-    
     plt.scatter(res[:,0], res[:,1], marker='o', c = res[:,2])
     plt.plot(x_c, y_c, c = 'red')
-    
-    plt.xlabel('theta')
-    plt.ylabel('velocity')
+
+    plt.xlabel('x')
+    plt.ylabel('y')
     plt.axis('equal')
-    plt.title("Result of our ransac")
+    plt.title("Result of ransac")
     plt.xlim(-45,45)
     plt.show()

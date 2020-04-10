@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 import math
+from mpl_toolkits.mplot3d import Axes3D
 
 def plane_fit(hypo_inliers):
     A = hypo_inliers[0]
@@ -60,34 +61,37 @@ def downsample(data, distance):
 
 if __name__=='__main__':
     #read data
-    file = open('test1.csv', 'r')
+    file = open('test_plane.csv', 'r')
     csvCursor = csv.reader(file)
     i = 0    
     for row in csvCursor:
         if i==1:
-            row = [float(x) for x in row[0:6]]
-            A1 = np.array(row[0:6])
+            row = [float(x) for x in row[0:3]]
+            A1 = np.array(row[0:3])
         elif i>1:
-            row = [float(x) for x in row[0:6]]
+            row = [float(x) for x in row[0:3]]
             A1 = np.row_stack((A1, row))
         i=i+1
     file.close()
 
-    normalize_1 = (A1[:,3] - np.mean(A1[:,3]))/np.std(A1[:,3])
-    normalize_2 = (A1[:,4] - np.mean(A1[:,4]))/np.std(A1[:,4])
+    # In this test data, it would be easier to fit the desire plane if normalize the raw data
+    normalize_1 = (A1[:,0] - np.mean(A1[:,0]))/np.std(A1[:,0])
+    normalize_2 = (A1[:,1] - np.mean(A1[:,1]))/np.std(A1[:,1])
+    normalize_3 = (A1[:,2] - np.mean(A1[:,2]))/np.std(A1[:,2])
     
     data_in = normalize_1;
     data_in = np.column_stack((data_in, normalize_2))
-    data_in = np.column_stack((data_in, A1[:,5]))
+    data_in = np.column_stack((data_in, normalize_3))
 
-#    new_data = downsample(data_in, 0.1)
+#    data_in = downsample(data_in, 0.1)
 
     # parameters
     max_iterations = 1000
-    threshold = 0.25
+    threshold = 0.2
     fit_prob = 0.99
     max_count = 0
     inliers = data_in
+
     for i in range(0, max_iterations):
         choice = np.random.choice(data_in.shape[0],3,replace=False)
         hypo_inliers = data_in[choice]
@@ -98,6 +102,7 @@ if __name__=='__main__':
         if temp_inliers.shape[0] > max_count:
             max_count = temp_inliers.shape[0]
             inliers = temp_inliers
+            best_plane = plane_params
         if (inliers.shape[0]/data_in.shape[0] > fit_prob):
             break
     idx = 0
@@ -114,30 +119,23 @@ if __name__=='__main__':
             res = np.row_stack((res, row))
     print("inliers/all = " + str(inliers.shape[0]) + "/" + str(data_in.shape[0]))
         
+    x = np.linspace(res[:,0].min(), res[:,0].max(), 30)
+    y = np.linspace(res[:,1].min(), res[:,1].max(), 30)
+    xx, yy = np.meshgrid(x, y)
+    z = (-best_plane[0] * xx - best_plane[1] * yy - best_plane[3]) * 1. /best_plane[2]
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_aspect('equal')
-    ax.scatter(normalize_1, normalize_2, A1[:,5], marker='o', c = A1[:,0])
-    
-    ax.set_xlabel('R1')
-    ax.set_ylabel('R2')
-    ax.set_zlabel('velocity')
-    plt.title("Result of pcl ransac")
-    plt.show()
-    
+    plt3d = plt.figure().gca(projection='3d')
+    plt3d.plot_surface(xx, yy, z, alpha=0.2)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    ax = plt.gca()
     ax.set_aspect('equal')
     ax.scatter(res[:,0], res[:,1], res[:,2], marker='o', c = res[:,3])
-    
-    ax.set_xlabel('R1')
-    ax.set_ylabel('R2')
-    ax.set_zlabel('velocity')
-    plt.title("Result of our ransac")
- #   plt.plot(rcs[:,0],rcs[:,1], 'ro')
-#    plt.scatter(rcs[:,0], rcs[:,1], s = 8, color = 'green', label = 'Before Optimization')
+
+
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+    plt.title("Result of ransac")
 
 
 
