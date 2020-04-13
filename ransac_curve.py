@@ -63,12 +63,12 @@ if __name__=='__main__':
     #read data
     file = open('test_curve.csv', 'r')
     csvCursor = csv.reader(file)
-    i = 0    
+    i = 0
     for row in csvCursor:
-        if i==1:
+        if i==0:
             row = [float(x) for x in row[0:2]]
             data_in = np.array(row[0:2])
-        elif i>1:
+        elif i>0:
             row = [float(x) for x in row[0:2]]
             data_in = np.row_stack((data_in, row))
         i=i+1
@@ -113,6 +113,7 @@ if __name__=='__main__':
     x_c = np.linspace(-45,45,100)
     y_c = np.array(max_curve[0] * np.multiply(x_c, x_c) + max_curve[1] * x_c + max_curve[2])
 
+    print(res)
 
     plt.figure()
     plt.scatter(res[:,0], res[:,1], marker='o', c = res[:,2])

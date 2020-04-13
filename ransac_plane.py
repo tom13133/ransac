@@ -65,10 +65,10 @@ if __name__=='__main__':
     csvCursor = csv.reader(file)
     i = 0    
     for row in csvCursor:
-        if i==1:
+        if i==0:
             row = [float(x) for x in row[0:3]]
             A1 = np.array(row[0:3])
-        elif i>1:
+        elif i>0:
             row = [float(x) for x in row[0:3]]
             A1 = np.row_stack((A1, row))
         i=i+1
